@@ -1,0 +1,16 @@
+SYMPTOMS = [
+    ("ITCHING", "Itching"),
+    ("EAR_INFECTIONS", "Ear infections"),
+    ("HOT_SPOTS", "Hot spots"),
+    ("HAIR_LOSS", "Hair loss"),
+    ("REDNESS", "Redness"),
+    ("PAW_LICKING", "Paw licking"),
+    ("VOMITING", "Vomiting"),
+    ("DIARRHEA", "Diarrhea"),
+    ("GAS", "Gas"),
+    ("SOFT_STOOL", "Soft stool"),
+    ("CONSTIPATION", "Constipation"),
+    ("LOSS_OF_APPETITE", "Loss of appetite"),
+    ("WEIGHT_LOSS", "Weight loss"),
+    ("LETHARGY", "Lethargy"),
+]
