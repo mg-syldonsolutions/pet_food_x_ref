@@ -3,23 +3,47 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
+import IngredientMultiSelect, { Option } from "@/components/IngredientMultiSelect";
 
 export default function ProductsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read search params (filters + pagination)
   const species = searchParams?.get("species") || "";
   const format = searchParams?.get("format") || "";
   const lifeStage = searchParams?.get("life_stage") || "";
   const pageParam = searchParams?.get("page") || "1";
   const page = parseInt(pageParam, 10) || 1;
 
+  const excludeValues = searchParams?.getAll("exclude") || [];
+  const initialExclusions = excludeValues.map((v) => ({
+    value: v,
+    label: v,
+  }));
+
+  const currentSort = searchParams?.get("sort") || "";
+
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [excludeTerms, setExcludeTerms] = useState<Option[]>(initialExclusions);
 
   const pageSize = 20;
+
+  const ingredientOptions: Option[] = [
+    { value: "peas", label: "Peas" },
+    { value: "soy", label: "Soy" },
+    { value: "corn", label: "Corn" },
+    { value: "rice", label: "Rice" },
+  ];
+
+  const sortOptions: Option[] = [
+    { value: "", label: "Default" },
+    { value: "name_asc", label: "Name A→Z" },
+    { value: "name_desc", label: "Name Z→A" },
+    { value: "brand_asc", label: "Brand A→Z" },
+    { value: "brand_desc", label: "Brand Z→A" },
+  ];
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -30,6 +54,8 @@ export default function ProductsPage() {
       life_stage: lifeStage || null,
       limit: pageSize,
       offset: (page - 1) * pageSize,
+      exclude_terms: excludeTerms.map((t) => t.value),
+      sort: currentSort || null,
     };
 
     const res = await fetch(
@@ -42,7 +68,6 @@ export default function ProductsPage() {
     );
 
     const data = await res.json();
-
     setProducts(data.items || []);
     setTotalCount(data.total_count || 0);
     setIsLoading(false);
@@ -50,23 +75,33 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [species, format, lifeStage, page]);
+  }, [
+    species,
+    format,
+    lifeStage,
+    page,
+    excludeTerms,
+    currentSort,
+  ]);
 
-  // Helper to update search params
-  const updateQuery = (key: string, value: string) => {
+  const updateUrlParams = (
+    updates: [string, string | string[]][]
+  ) => {
     const params = new URLSearchParams(searchParams?.toString() || "");
 
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
+    updates.forEach(([key, val]) => {
+      if (Array.isArray(val)) {
+        params.delete(key);
+        val.forEach((v) => params.append(key, v));
+      } else if (val) {
+        params.set(key, val);
+      } else {
+        params.delete(key);
+      }
+    });
 
-    // Reset to page 1 if filters change
     params.delete("page");
-
-    const queryString = params.toString();
-    router.push(`/products${queryString ? `?${queryString}` : ""}`);
+    router.push(`/products?${params.toString()}`);
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -79,7 +114,9 @@ export default function ProductsPage() {
       <div className="flex flex-wrap gap-4 items-center">
         <select
           value={species}
-          onChange={(e) => updateQuery("species", e.target.value)}
+          onChange={(e) =>
+            updateUrlParams([["species", e.target.value]])
+          }
           className="border px-3 py-2 rounded"
         >
           <option value="">All Species</option>
@@ -89,7 +126,9 @@ export default function ProductsPage() {
 
         <select
           value={format}
-          onChange={(e) => updateQuery("format", e.target.value)}
+          onChange={(e) =>
+            updateUrlParams([["format", e.target.value]])
+          }
           className="border px-3 py-2 rounded"
         >
           <option value="">All Formats</option>
@@ -99,7 +138,9 @@ export default function ProductsPage() {
 
         <select
           value={lifeStage}
-          onChange={(e) => updateQuery("life_stage", e.target.value)}
+          onChange={(e) =>
+            updateUrlParams([["life_stage", e.target.value]])
+          }
           className="border px-3 py-2 rounded"
         >
           <option value="">All Life Stages</option>
@@ -108,17 +149,45 @@ export default function ProductsPage() {
           <option value="kitten">Kitten</option>
         </select>
 
+        <select
+          value={currentSort}
+          onChange={(e) =>
+            updateUrlParams([["sort", e.target.value]])
+          }
+          className="border px-3 py-2 rounded"
+        >
+          {sortOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
         <button
           onClick={() => router.push("/products")}
           className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300"
         >
-          Clear Filters
+          Clear All
         </button>
       </div>
 
-      {/* Product Grid + Pagination */}
+      {/* ** Styled Ingredient Multi-Select ** */}
+      <div className="flex gap-4 items-center">
+        <div className="min-w-[280px]">
+          <IngredientMultiSelect
+            value={excludeTerms}
+            options={ingredientOptions}
+            onChange={(arr) => {
+              setExcludeTerms(arr);
+              updateUrlParams([["exclude", arr.map((o) => o.value)]]);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Products + Pagination */}
       {isLoading ? (
-        <p className="text-gray-700">Loading products…</p>
+        <p className="text-gray-700">Loading…</p>
       ) : (
         <>
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -129,7 +198,9 @@ export default function ProductsPage() {
 
           <div className="flex justify-between items-center pt-6">
             <button
-              onClick={() => updateQuery("page", String(Math.max(page - 1, 1)))}
+              onClick={() =>
+                updateUrlParams([["page", String(page - 1)]])
+              }
               disabled={page <= 1}
               className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
             >
@@ -142,10 +213,7 @@ export default function ProductsPage() {
 
             <button
               onClick={() =>
-                updateQuery(
-                  "page",
-                  String(Math.min(page + 1, totalPages))
-                )
+                updateUrlParams([["page", String(page + 1)]])
               }
               disabled={page >= totalPages}
               className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
